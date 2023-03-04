@@ -400,17 +400,17 @@ plot_cluster=function(scores_z,dbcluster,kcluster,st,et,datapoints){
   #clusterdata$Cluster=as.factor(res$cluster)
   colnames(clusterdata)[1:2] =c("ksi1","ksi2")
 
-  tps <- ggplot2::ggplot(clusterdata,ggplot2::aes(ksi1,ksi2,colour = Cluster)) + geom_point(aes(shape=Cluster),size=3)+ggtitle(paste0("DBSCAN Cluster Results",'\n',"(",dim(clusterdata)[1]," Subjects",")")) +
-    xlab(expression('Score '* widehat(xi[i1]))) + ylab(expression('Score '* widehat(xi[i2])))+ theme(plot.title = element_text(hjust = 0.5))+
-    theme(text=element_text(size = 20))
+  tps <- ggplot2::ggplot(clusterdata,ggplot2::aes(ksi1,ksi2,colour = Cluster)) + ggplo2::geom_point(aes(shape=Cluster),size=3)+ggplot2::ggtitle(paste0("DBSCAN Cluster Results",'\n',"(",dim(clusterdata)[1]," Subjects",")")) +
+    ggplot2::xlab(expression('Score '* widehat(xi[i1]))) + ggplot2::ylab(expression('Score '* widehat(xi[i2])))+ ggplot2::theme(plot.title = element_text(hjust = 0.5))+
+    ggplot2::theme(text=element_text(size = 20))
   ###kmeans
 
   clusterdatak=data.frame(scores_z)
   clusterdatak$Cluster=as.factor(kcluster)
   colnames(clusterdatak)[1:2] =c("ksi1","ksi2")
-  tpskmeans <- ggplot2::ggplot(clusterdatak,ggplot2::aes(ksi1,ksi2,colour = Cluster)) + geom_point(aes(shape=Cluster),size=3)+ggtitle(paste0("Kmeans Cluster Results",'\n',"(",dim(clusterdatak)[1]," Subjects",")")) +
-    xlab(expression('Score '* widehat(xi[i1]))) + ylab(expression('Score '* widehat(xi[i2])))+ theme(plot.title = element_text(hjust = 0.5))+
-    theme(text=element_text(size = 20))
+  tpskmeans <- ggplot2::ggplot(clusterdatak,ggplot2::aes(ksi1,ksi2,colour = Cluster)) + ggplot2::geom_point(aes(shape=Cluster),size=3)+ggplot2::ggtitle(paste0("Kmeans Cluster Results",'\n',"(",dim(clusterdatak)[1]," Subjects",")")) +
+    ggplot2::xlab(expression('Score '* widehat(xi[i1]))) + ggplot2::ylab(expression('Score '* widehat(xi[i2])))+ ggplot2::theme(plot.title = element_text(hjust = 0.5))+
+    ggplot2::theme(text=element_text(size = 20))
 
   return(list("figdbscan"=tps,"figkmeans"=tpskmeans))
 }
@@ -435,9 +435,9 @@ plot_kdistance=function(scores_z,knnum,pct){
   distdata=data.frame(sort(dist))
   distdata$index=1:dim(distdata)[1]
   ninty5p=quantile(dist, probs = pct)
-  dp <- ggplot2::ggplot(distdata,ggplot2::aes(index,sort.dist.)) + geom_line()+ggtitle(paste0(knnum,"-NN Distance Plot ",'\n',"(",dim(distdata)[1]," Subjects",")")) +
-    xlab("Points sorted by Distance") + ylab("Distance")+ theme(plot.title = element_text(hjust = 0.5))+geom_hline(yintercept=ninty5p, color = "red")+
-    geom_text(data=data.frame(round(ninty5p,2)),
+  dp <- ggplot2::ggplot(distdata,ggplot2::aes(index,sort.dist.)) + ggplot2::geom_line()+ggplot2::ggtitle(paste0(knnum,"-NN Distance Plot ",'\n',"(",dim(distdata)[1]," Subjects",")")) +
+    ggplot2::xlab("Points sorted by Distance") + ggplot2::ylab("Distance")+ ggplot2::theme(plot.title = element_text(hjust = 0.5))+ggplot2::geom_hline(yintercept=ninty5p, color = "red")+
+    ggpplot2::geom_text(data=data.frame(round(ninty5p,2)),
               ggplot2::aes(x=dim(distdata)[1]/2,y=1.2*ninty5p,label=paste0("Distance at ",gsub("%$","",row.names(data.frame(round(ninty5p,2)))),"th percentile= ",round(ninty5p,2))))
   return(list("kdistfig"=dp))
 }
