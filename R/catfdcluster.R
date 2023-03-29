@@ -118,6 +118,11 @@ catfdcluster=function(catfd,argval,splines1D,M,knnum,pct,minPts,max.nc,min.nc,me
   #########change to max increase
   #sortdist=sort(dist)
   #epsoptimal=sortdist[which.max(diff(sortdist))]
+  
+  distdataelbow=data.frame(sort(dist))
+  distdataelbow$index=1:(dim(scores_z)[1])
+  ipoint <- elbow(data = distdataelbow)
+  epsoptimal=ipoint$sort.dist._selected
   ##############################
 
   #########################################################
@@ -132,8 +137,8 @@ catfdcluster=function(catfd,argval,splines1D,M,knnum,pct,minPts,max.nc,min.nc,me
   ##############################################
 
   if (numdim=="all"){
-    res <- dbscan::dbscan(scores_z, eps =ninty5p , minPts = minPts)
-    #res <- dbscan::dbscan(scores_z, eps =epsoptimal , minPts = minPts)
+    #res <- dbscan::dbscan(scores_z, eps =ninty5p , minPts = minPts)
+    res <- dbscan::dbscan(scores_z, eps =epsoptimal , minPts = minPts)
 
     clustertable=table(res$cluster)
     #tclustertable    #z score
@@ -145,7 +150,8 @@ catfdcluster=function(catfd,argval,splines1D,M,knnum,pct,minPts,max.nc,min.nc,me
   }
   if (numdim=="two"){
 
-    res <- dbscan::dbscan(scores_z[,1:2], eps =ninty5p , minPts = minPts)
+    #res <- dbscan::dbscan(scores_z[,1:2], eps =ninty5p , minPts = minPts)
+    res <- dbscan::dbscan(scores_z[,1:2], eps =epsoptimal , minPts = minPts)
 
     clustertable=table(res$cluster)
     #tclustertable    #z score
