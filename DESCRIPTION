@@ -30,7 +30,9 @@ Imports:
     dbscan,
     fossil,
     NbClust,
-    ggplot2
+    ggplot2,
+    graphics,
+    stats
 
 
 
