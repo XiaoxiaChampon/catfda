@@ -37,19 +37,30 @@ catfdcluster=function(catfd,argval,splines1D,M,knnum,pct,minPts,max.nc,min.nc,me
   }
   t=seq(st,et,length=datapoints)
   #input observed X_i1 or X_i2 binary curves and return smoothed Z_i1hat, Z_i2hat
-  Zihat=array(data=NA,c(nsub,ntime,numcat))
+  #Zihat=array(data=NA,c(nsub,ntime,numcat))
+  #for (i in 1:numcat){
+    #datacopy=subdata
+    #Zihat[,,i]=Z_ihat(datacopy[,,i],t)
+  #}
+
+  #input observed X_i1 or X_i2 binary curves and return smoothed p_i1hat, p_i2hat
+  pihat=array(data=NA,c(nsub,ntime,numcat))
   for (i in 1:numcat){
     datacopy=subdata
-    Zihat[,,i]=Z_ihat(datacopy[,,i],t)
+    pihat[,,i]=phatc(datacopy[,,i],t)
   }
-
+  
   Zihatstar=array(data=NA,c(nsub,ntime,numcat-1))
   for (i in 1:(numcat-1)){
-    datacopy=Zihat
-    Zihatstar[,,i]=Zihat[,,i]+log(1+exp(Zihat[,,numcat]))-log(1+exp(Zihat[,,i]))-Zihat[,,numcat]
+    #datacopy=Zihat
+    #Zihatstar[,,i]=Zihat[,,i]+log(1+exp(Zihat[,,numcat]))-log(1+exp(Zihat[,,i]))-Zihat[,,numcat]
+
+    datacopy=pihat
+    Zihatstar[,,i]=log(pihat[,,i])-log(pihat[,,numcat])
   }
 
-  phatmat=phatf(Zihatstar)
+  #phatmat=phatf(Zihatstar)
+  phatmat=pihat
 
 
 
