@@ -48,7 +48,7 @@ Z_ihat=function(Curves_train,tt){
 phatc=function(Curves_train,tt){
   N_train=dim(Curves_train)[1]
   vec = matrix(1:(N_train), ncol = 1)
-  smoothed_x = t(apply(vec, 1, function(x) regression_g(x, Curves_train, tt)))
+  smoothed_p = t(apply(vec, 1, function(x) regression_g(x, Curves_train, tt)))
   smoothed_p
 }
 
