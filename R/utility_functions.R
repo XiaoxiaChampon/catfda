@@ -5,612 +5,822 @@
 # Update:
 #####################################################################
 
-#required packages
+##########################################################
+############################################################
+# Article: Functions Needed for Clustering Categorical Functional Data
+#           File that contains all the functions necessary to generate data 
+# Author:  Ana-Maria Staicu
+# Date: 07/01/2023
+##############################################################
+
+#Function to generate the LATENT PROCESS and EVENT PROBAB
+#INPUT 
+#k - number of eigen functions
+#n - number of subjects, 
+#m - number of timepoints per curve. Regular grid (same for every)
+#Q - numebr of categories. Fixed to 3
+#setting  - 1,2,3 settings considered in the ms 
+#scenario - A or B used for clustering
+#
+#OUTPUT
+# list with Z1,Z2, p1,p3, p3, mu, Phi, scores
+
+#m - number of time points
+
+
+generate_data_scenario=function(k=3,n,m, setting=3,  scenario="A", Q=3){
+  # k=3;n=100;m=250; setting=3;   scenario="A"; Q=3
+  tt <- seq(from = 0.0001, to = 1, length=m)
+  k=k
+  q=Q  #number of categories
+  
+  score.var <- rep(0, k) # assumes k=3
+  
+  # Define MEAN and SCORE VARIANCES for the 3 settings 
+  if (setting==1){
+    if (scenario=="A" ){ 
+      mu_1=function(t)   -1+2*t+2*t^2  
+      mu_2=function(t)   -2.5+exp(t*2) 
+      #
+      score.var[1]<- 1
+      score.var[2]<- 1/2
+      score.var[3]<- 1/4  }
+    
+    if (scenario=="B" ){
+      mu_1=function(t) -1+2*t+2*t^2
+      mu_2=function(t)  -0.5+ exp(t*2) 
+      score.var[1]<- 1
+      score.var[2]<- 1/2
+      score.var[3]<- 1/4  }
+    if (scenario=="C"){
+      mu_1=function(t)   -1+2*t+2*t^2
+      mu_2=function(t)   -2.5+exp(t*2)
+
+      score.var[1]<- 50
+      score.var[2]<- 25
+      score.var[3]<- 5  }
+    
+  }
+  
+  if(setting==2){
+    mu_1=function(t) 4*t^2 -1.2        
+    mu_2=function(t) 4*t^2 -3.5          
+    score.var[1]<- 1
+    score.var[2]<- 1/2
+    score.var[3]<- 1/4}
+  
+  if(setting==3){
+    mu_1=function(t) -2.2 + 4*t^2 
+    mu_2=function(t) -7+6*t^2     
+     score.var[1]<- 1
+     score.var[2]<- 1/4
+     score.var[3]<- 1/16
+
+    }
+   
+  
+  # Define BASIS which is assume the same for all settings
+  #*** changed basis to avoid meeting halfway in the same point
+  psi_fn=function(k,t){
+    psi_k1=sapply(c(1:k), function(i) sin((2*i+1)*pi*t ))
+    psi_k2=sapply(c(1:k), function(i) cos(2*i*pi*t ))  
+    rbind(psi_k1, psi_k2)
+  }
+  
+  #*** define the matrix of MFPC scores 
+  
+  scores_standard <- matrix(rnorm(n*k), ncol=k) 
+  scores<- scores_standard %*% diag(sqrt(score.var))
+  
+  #*** construct Z 
+  
+  BIG_mu <- c(mu_1(tt), mu_2(tt))
+  BIG_phi <- psi_fn(k=k, t=tt) 
+  
+  Z <- BIG_phi %*% t(scores) +BIG_mu 
+  Z1<- Z[1:m,]
+  Z2<- Z[1:m+m,]
+  
+ 
+  
+  # RECOVER probabilities for each category
+  expZ1 <- exp(Z1)
+  expZ2 <- exp(Z2)
+  denom <- 1+ expZ1+  expZ2
+  p1 <- expZ1/ denom
+  p2 <- expZ2/ denom
+  #p3 <- 1-p1-p2
+  p3 <- 1/denom
+  
+  #OUTPUT  
+  return(list(Z1=Z1, Z2=Z2, p1=p1, p2=p2, p3=p3, MEAN=BIG_mu, PHI=BIG_phi,  MFPC =scores))
+}
+
+
+
+
+#Function to generate Categ Functional Data, given the latent event probabilities
+# INPUT
+# p list of probability matrices that are m by n with probabilities for n subjects, 
+#        each observed m times; elements called p1, p2, p3
+#
+# OUTPUT
+# categ FD - m by n with Q=3  categories 
+generate_CategFD_scenario=function(p, seed=NULL){
+  Q=length(p) # assume Q=3
+  p1=p$p1; p2=p$p2; p3=p$p3
+  n <- ncol(p1)
+  m<- nrow(p1)
+  
+  if(!is.null(seed)) set.seed(seed)
+  
+  W <- matrix(0, ncol=n, nrow=m) # identify new object - matrix of dimensions m by n
+  X_array <- array(0, c(n,m, Q))
+  for (i in c(1:n)){
+    X <-sapply(c(1:m) , function(j) rmultinom(n=1, size=1, prob = c(p1[j,i],p2[j,i], p3[j,i]) ) )
+    W[,i] <- apply(X, 2, which.max)
+    X_array[i,,] <- t(X)
+  }
+  
+  return(list(X=X_array, W=W))
+}
+
+
+
+############################################################
+# Article: Functions Needed for Clustering Categorical Functional Data
+#           File that contains all the functions necessary to estimate categorical FD with 3 CATEGORIES! 
+# Author:  Ana-Maria Staicu
+# Date: 07/01/2023
+##############################################################
+
+
+# estimate_categFD - function to recover the latent trajectories
+# 
+# INPUT
+# X the n by m by Q array with values 0 and 1 obtained from the categ fn DATA (this is needed if SIM=true)
+# W the n by m matrix of categories - REQUIRED if SIM=FALSE
+# tt - the grid points at which the curves are observed. Regular + Balanced sampling desig
+# sim = indicator with values TRUE (if we perform simulation) and FALSE (if we apply it to categ FD)
+#       default TRUE
+#
+#OUTPUT
+# list with Z1_est and Z2_est; p1_est, p2_est, p3_est
+
+estimate_categFD <- function(X=NULL, W=NULL, tt, basis_size=25, method="ML", sim=TRUE){
+
+  if(is.null(X)) sim<-FALSE
+  
+  if(!sim){
+    n<- ncol(W)
+    m <-nrow(W)
+    Q<- length(unique(c(W)))
+    Q_vals <- unique(c(W))
+    if(is.numeric(Q_vals)) Q_vals<- sort(Q_vals)
+    
+    X<- array(0, c(n,m,Q))
+    for(i in 1:n){
+      w1<-W[,i]
+      for(j in 1:m) X[i,j, which(Q_vals==w1[j])] <- 1
+    }
+  }
+  
+  n<- dim(X)[1]
+  m<- dim(X)[2]
+  Q <- dim(X)[3]
+  
+  Z<-NULL
+  p<-array(0, c(n, m, 3))
+  ##########################
+  ###########################
+  #n is the subject and this step is done by subject level
+  #can parallel
+  #############################
+  #############################
+  for (i in 1:n){
+    x1<- X[i,,1]
+    x2<- X[i,,2]
+    x3<- X[i,,3]
+    
+    # fit the Binom model
+    
+    ###################################################
+    ###################################################
+    ##updated estimation
+   
+      basis_size_rev_1<-max(min(round(  min(sum(x1), sum(1-x1))/2), basis_size ), 5)
+
+      fit_binom_1<- gam(x1~s(tt, bs = "cr", m=2, k = basis_size_rev_1),
+                        #family="binomial", method = method,
+                        family=binomial(link="probit"), method = method,
+                        control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),
+                        optimizer=c("outer","bfgs"))
+    p1 <- fit_binom_1$fitted.values
+    p1_linpred <- fit_binom_1$linear.predictors
+    
+  
+      basis_size_rev_2<-max(min(round(  min(sum(x2), sum(1-x2))/2), basis_size ), 5)
+
+      fit_binom_2<- gam(x2~s(tt, bs = "cr", m=2, k = basis_size_rev_2),
+                        family=binomial(link="probit"), method = method,
+                        control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),
+                        optimizer=c("outer","bfgs"))
+  
+
+    p2 <- fit_binom_2$fitted.values
+    p2_linpred <- fit_binom_2$linear.predictors
+ 
+    basis_size_rev_3<-max(min(round(  min(sum(x3), sum(1-x3))/2), basis_size ), 5)
+
+    fit_binom_3<- gam(x3~s(tt, bs = "cr", m=2, k = basis_size_rev_3),
+                        family=binomial(link="probit"), method = method,
+                        control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),
+                        optimizer=c("outer","bfgs"))
+    
+    p3 <- fit_binom_3$fitted.values
+    p3_linpred <- fit_binom_3$linear.predictors
+   
+    
+    
+    # estimate the latent tranjecotries Z
+    z1<- (p1_linpred-p3_linpred)-log( (1+exp(p1_linpred))/(1+exp(p3_linpred)))
+    z2<- (p2_linpred-p3_linpred)-log( (1+exp(p2_linpred))/(1+exp(p3_linpred)))
+    
+    Z<- cbind(Z, c(z1,z2))
+    p[i,,] <- cbind(p1/(p1+p2+p3), p2/(p1+p2+p3), p3/(p1+p2+p3))
+    
+  }
+  
+  return(list(Z1_est=Z[1:m,], Z2_est=Z[1:m+m,], 
+              p1_est=t(p[,,1]), p2_est=t(p[,,2]), p3_est=t(p[,,3]) ))
+}
+
+
+
+#*** extract scores using UNIVARIAFE fpca, FAST COV estimation.  SUPER FAST
+#INPUT
+# Z1,Z2 - m by n latent processes for the categ FD with 3 categories
+# tt - grid of points
+# PVE - percentage of explained variance (default value 0.95)
+# OUTPUT
+# list with estimated PHI (m by K) with function norm 1
+#           projection of data onto PHI (called scores - nby K matrix) 
+#
+
+
+extract_scores_UNIVFPCA <- function (mZ1,mZ2, tt=tt , PVE=0.95){
+  m<- nrow(mZ1)
+  n<-ncol(mZ1)
+  out1 <- fpca.face(Y=t(mZ1), argvals =tt, pve = 0.99)
+  out2 <- fpca.face(Y=t(mZ2), argvals =tt, pve = 0.99)
+  O_m1 <- matrix(0, nrow=m, ncol=out1$npc)
+  O_m2  <- matrix(0, nrow=m, ncol=out2$npc)
+  
+  #construct PHI
+  Phi_est0 <-  rbind(cbind(out1$efunctions*sqrt(m),O_m2 ), 
+                     cbind(O_m1,out2$efunctions*sqrt(m)))
+  Scores0 <- cbind(out1$scores, out2$scores)  
+  ScoresCov_0 <- cov(Scores0 ) 
+  oute <- eigen(ScoresCov_0)
+  
+  K<- which(cumsum( oute$values)/sum(oute$values)>=PVE)[1]
+  count_iter = 0
+  delta=0.01
+  while (K<2 && count_iter<100) {
+    count_iter = count_iter + 1
+    print(cat("count_iter: ", count_iter))
+    K<- which(cumsum( oute$values)/sum(oute$values)>=(PVE+delta))[1]
+    delta=delta+0.01
+  }
+  
+  Phi_est <-  Phi_est0%*% oute$vectors[,1:K] # correct eigenfns
+  
+  mZ <- rbind(mZ1, mZ2) 
+  Scores_est <- t(mZ) %*%Phi_est/sqrt(m)  # they are not demeaned
+  
+  return (list(scores=Scores_est, Phi= Phi_est))
+}
+
+
+
+#**** clustering the scores using KMEANS 
+#INPUT
+# n by K scores - or features extracted from the multivariate FD
+#OUTPUT
+# list with 2 elements: nclust (number of clusters), label (vector with cluster membership)
+#
+kmeans_cluster <- function(data=scores_K){
+  out_kmeans = NbClust::NbClust(data = data, diss = NULL,
+                                distance = "euclidean", min.nc = 2, max.nc = 5,
+                                method = "kmeans",index="silhouette")
+  
+  return(list(nclust=as.numeric(out_kmeans$Best.nc[1]), label = out_kmeans$Best.partition))
+}
+
+
+#**** clustering the scores using KMEANS 
+#INPUT
+# n by K scores - or features extracted from the multivariate FD
+# scale_eps, scalar, the scale of the epsilon
+#OUTPUT
+# list with 2 elements: nclust (number of clusters), label (vector with cluster membership)
+#
+dbscan_cluster <- function(data=scores_K, scale_eps){
+  
+  dimz=dim(data)[2]
+  if (dimz<=2){minPts=4}
+  if (dimz>2){minPts=2*dimz+1}
+  dist=kNNdist(data, k = minPts-1)
+  #########change to max increase
+  distdataelbow=data.frame(sort(dist))
+  distdataelbow$index=1:(dim(data)[1])
+  ipoint <- elbow(data = distdataelbow)
+  epsoptimal=(ipoint$sort.dist._selected)*scale_eps
+  
+  out_dbscan <- dbscan(data, eps =epsoptimal , minPts = minPts)
+  return(list(nclust=dim(table(out_dbscan$cluster)), label = out_dbscan$cluster))
+}
+
+
+#*** clustering the curves directly using FADP 
+#INPUT
+# Z1,Z2 - m by n latent processes for the categ FD with 3 categories
+# tt - grid of points
+# PVE - percentage of explained variance (default value 0.95)
+# OUTPUT
+# list with 2 elements: nclust (number of clusters), label (vector with cluster membership)
+#
+fadp_cluster <- function(mZ1, mZ2, tt=tt, PVE=0.95){
+  
+  fdabasis = fda::create.bspline.basis(c(0,1), 25, 4)
+  fdatime = tt
+  fdafd1 = fda::smooth.basis(tt, mZ1, fdabasis)$fd
+  fdafd2 = fda::smooth.basis(tt, mZ2, fdabasis)$fd
+  
+  FADlist=list(fdafd1,fdafd2)
+  FADP <- FADPclust(fdata = FADlist, cluster = 2:5, method = "FADP1",
+                    proportion = seq(0.02, 0.2, 0.02), f.cut = 0.15,
+                    pve = PVE, stats = "Avg.silhouette")
+  
+  return(list(nclust=FADP$nclust, label = FADP$clust))
+}
+
+
+
+#**** evaluate cluster accuracy using RI and ARI
+# INPUT
+# VECTORS with true memberships (true_cluster) 
+#        with estimated memberships (coming from cluster_method$label)
+#noise: scalar, 0 or 3, if dbscan clustering, use 0, else, use 3.
+# OUTPUT: RI and ARI, CPN
+#
+evaluate_cluster <- function(true_cluster, new_cluster,noise){
+  ri=rand.index(true_cluster,new_cluster)
+  ari=adj.rand.index(true_cluster, new_cluster)
+  
+  c3=which(true_cluster==noise)
+  cc3=which(new_cluster==noise)
+  cpn=sum(cc3 %in% c3)/length(c3)
+  return(list(ri=ri, ari=ari,cpn=cpn))
+}
+
+#Function to find the L2 distance between two latent curves
+#Input: yy- 1D vector (true curve)
+#       yy2-1D vector (estimated curve)
+#Output: scalar-L2 distance
+trapzfnum <- function(yy,yy2){
+  
+  st=0.0001
+  et=1
+  x=seq(st,et,length=5000)
+  xx=seq(st,et,length=length(yy))
+  y1 <- cubicspline(xx, yy,x)
+  y2 <- cubicspline(xx, yy2,x)
+  out=sqrt(trapz(x, (y1-y2)^2) )
+  out
+  
+}
+
+#Function to find the Hellinger distance between two probability curves
+#Input: yy- 1D vector (true curve)
+#       yy2-1D vector (estimated curve)
+#Output: scalar-Hellinger distance
+trapzfnump <- function(yy,yy2){
+  st=0.0001
+  et=1
+  x=seq(st,et,length=5000)
+  xx=seq(st,et,length=length(yy))
+  y1 <- cubicspline(xx, yy,x)
+  y1[y1<0]=0
+  y2 <- cubicspline(xx, yy2,x)
+  y2[y2<0]=0
+  out=sqrt(trapz(x, (sqrt(y1)-sqrt(y2))^2) )
+  out
+  
+}
+#Function to use trapzfnum function and find L2 distance for 2D array, n of them
+mse_bw_matrix=function(truecurve,estcurve){
+  n=dim(truecurve)[2]
+  datapoints=dim(truecurve)[1]
+  mseall=c(0)
+  ######could probably use apply function here it's also subject level
+  for (i in 1:n){
+    mseall[i]=trapzfnum(truecurve[,i],estcurve[,i])
+    
+  }
+  mseall
+  
+}
+
+#Function to use trapzfnump function and find Hellinger distance for 2D array, n of them
+mse_bw_matrixp=function(truecurve,estcurve){
+  n=dim(truecurve)[2]
+  datapoints= dim(truecurve)[1]
+  mseall=c(0)
+  ######could probably use apply function here it's also subject level
+  for (i in 1:n){
+    mseall[i]=trapzfnump(truecurve[,i],estcurve[,i])/sqrt(2)
+   
+    
+  }
+  mseall
+}
+############################################################
+# Article: Functions Needed for Clustering Categorical Functional Data
+#           Main file to generate data and obtain simulation results
+# Author:  Ana-Maria Staicu
+# Date: 07/01/2023
+##############################################################
+
+
+#Load the libraries
+#############################################################
+library(xtable)
 library(fda)
 library(refund)
+library(Matrix)
+library(MASS)
+library(arm)
 library(mgcv)
+library(readr)
 library(funData)
 library(MFPCA)
+library(purrr)
+library(tidyverse)
+library(gridExtra)
 library(dbscan)
+library(tidyr)
+library(dplyr)
 library(fossil)
-library(NbClust)
-library(ggplot2)
-library(stats)
-library(graphics)
+devtools::install_github("ahasverus/elbow")
+library(elbow)
+library(pdfCluster)
+library(FADPclust)
+library(pracma)
 
-#Function to return the logit
-logit <- function(x){
-  return(log(x/(1-x)))
-}
 
-#get smoothed curves
-regression_g = function(z, Curves, tt, k=25, method="ML"){   #changed from 10 to 25
-  z1 = Curves[z,]
-  gam1 <- mgcv::gam(z1~s(tt, bs = "cr", m=2, k = k),
-                    family="binomial", method = method,control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),optimizer=c("outer","bfgs"))
-  return(gam1$fitted.values)
-}
+###################################################################################
+#This can be distributed to different  simulation
+# Function to Cluster and Calculate the estimation accuracy and clustering
+#Input n: scalar-number of subjects/observations
+#      m: scalr-number of time points per curve
+#      scenario: options are "A", "B" or "C", which uses different mean function and scores
+#      mc_sims: the number of the monte carlo simulations
 
-#original before 4/6/2022
-##
-#Step 1 of the proposed method in Anthony paper one: smoothing using link function
-##
-
-#New function to output predicted L-1 latent curves:
-#input observed X_i1 or X_i2 binary curves and return smoothed Z_i1hat, Z_i2hat
-Z_ihat=function(Curves_train,tt){
-  N_train=dim(Curves_train)[1]
-  vec = matrix(1:(N_train), ncol = 1)
-  smoothed_x = logit(t(apply(vec, 1, function(x) regression_g(x, Curves_train, tt))))
-  smoothed_x
-}
-
-phatc=function(Curves_train,tt){
-  N_train=dim(Curves_train)[1]
-  vec = matrix(1:(N_train), ncol = 1)
-  smoothed_p = t(apply(vec, 1, function(x) regression_g(x, Curves_train, tt)))
-  smoothed_p
-}
-
-mfundata=function(ufdata,t){
-  mvdata=funData::funData(argvals = list(t), X = ufdata)
-  mvdata
-}
-
-phatf=function (Zlatent) {
-  numcat = dim(Zlatent)[3]+1
-  n = dim(Zlatent)[1]
-  nt = dim(Zlatent)[2]
-  phatarray = array(0, dim = c(n, nt, numcat))
-  denomarray = array(0, dim = c(n, nt, (numcat - 1)))
-  for (i in 1:(numcat - 1)) {
-    denomarray[, , i] = exp(Zlatent[, , i])
-
+#Output: list-if n==100, also calculate the accuracy mse and Hellinger distance
+#             else, list(cluster_table_true-clustering results based on true scores,
+#                        "cluster_table_est"-clustering results based on estimated scores,
+#                         "cluster_table_est_se"=standared errors)
+cluster_simulation=function(n,m,scenario,mc_sims){
+ 
+  if (scenario=="A"){
+    p1=0.75
+    p2=0.22
+    p3=0.03
   }
-  demsum = 1 + apply(denomarray, c(1, 2), sum)
-  for (i in 1:(numcat - 1)) {
-    phatarray[, , i] = exp(Zlatent[, , i])/demsum
+  
+  if (scenario=="B"){
+    p1=0.5
+    p2=0.3
+    p3=0.2
   }
-  sump = apply(phatarray, c(1, 2), sum)
-  phatarray[, , numcat] = 1 - sump
-  return(phat = phatarray)
-}
-
-##
-score=function(mu,sd){
-  rnorm(1,mean=mu,sd=sd)
-}
-
-#n number of subjects
-#datapoints
-#sparse=1 yes   sparse=0 no
-#scorevar=2 bigger var , scorevar=1 smaller var
-#ps=1 find z1,z2,z3, find p1,p2,p3, logp1-logp3
-#ps=2 find z1,z2,z3, find p1,p2,p3=1-p1-p2 logp1-logp3
-#ps=3 find z1,z2 staicu find z1hat z2hat
-#ps=4 find z1,z2 staicu find z1hat z2hat but only use numerator
-#k  #number of eigen functions
-#q  #level of the categorical level
-
-generate_data_scenario=function(k,n,datapoints,sparse,scorevar,ps,seed=123,st,et){
-  k=k
-  seed=seed
-  st=st
-  et=et
-  scorevar=scorevar
-  #k=3  #number of eigen functions
-  q=3  #level of the categorical level
-
-  if(sparse==1){
-    mu_1=function(t){
-      3.8+4*t  #-0.64+4*t    #4.5+4*t   #sparse 3.8+4*t
-
-    }
-    mu_2=function(t){
-      1.5+4*t^2    #0.97+6*t^2
-
-    }
-
-
-
-
-    p_ihat=function(Z_i1app,Z_i2app){
-      denom=(1+exp(Z_i1app)+exp(Z_i2app))
-      p_i1h=exp(Z_i1app)/denom
-      p_i2h=exp(Z_i2app)/denom
-      p_i3h=1/denom
-      # p_i3h=1-p_i1h- p_i2h
-      return(list("p_1hatmatrix"=p_i1h,"p_2hatmatrix"=p_i2h,"p_3hatmatrix"=p_i3h))
-    }
+  
+  if (scenario=="C"){
+ 
+    
+    p1=0.4
+    p2=0.5
+    p3=0.1
   }
+  
+  n1<-n*p1; 
+  n2<- n*p2; 
+  n3<-n*p3
+  true_cluster <- c(rep(1, n1), rep(2, n2), rep(3, n3))
+  true_cluster_db <- c(rep(1, n1), rep(2, n2), rep(0, n3))
+  tt <- seq(from = 0.0001, to = 1, length=m) # gridpoint t
+  
+  # seed for latent process
+  seed1<-1230
+  # seed for categFD, given the latent process
+  seed0<- 9876
 
+  
+   rmse<- array(0, c(mc_sims, 2, 3))       #2 components and 3 settings
+   hellinger <- array(0, c(mc_sims, 3, 3)) #3 events probab and 3 settings
+  
+  true_kmeans <- est_kmeans  <- NULL # records clustering membership on the TRUE SCORES/ESTIMATED SCORES
+  true_fadp <- est_fadp <-  NULL # records clustering membership on the TRUE Z/ESTIMATED Z
+  true_dbscan <- est_dbscan <-  NULL
 
-  if (sparse==0){
-    mu_1=function(t){
-      #3.8+4*t
-      -0.64+4*t    #4.5+4*t   #sparse 3.8+4*t
+  for(ii in 1:mc_sims){
+    set.seed(seed1+100*ii)
 
-    }
-    mu_2=function(t){
-      #1.5+4*t^2
-      0.97+6*t^2
-
-
-    }
-
-    p_ihat=function(Z_i1app,Z_i2app){
-      denom=(1+exp(Z_i1app)+exp(Z_i2app))
-      p_i1h=exp(Z_i1app)/denom
-      p_i2h=exp(Z_i2app)/denom
-      p_i3h=1- p_i1h- p_i2h
-      return(list("p_1hatmatrix"=p_i1h,"p_2hatmatrix"=p_i2h,"p_3hatmatrix"=p_i3h))
-    }
-
-  }
-  if (sparse==4){
-    mu_1=function(t){
-      #3.8+4*t
-      #-0.64+4*t    #4.5+4*t   #sparse 3.8+4*t
-      t+1
-
-    }
-    mu_2=function(t){
-      #1.5+4*t^2
-      #0.97+6*t^2
-      #t-3
-      t-1
-
-    }
-
-    p_ihat=function(Z_i1app,Z_i2app){
-      denom=(1+exp(Z_i1app)+exp(Z_i2app))
-      p_i1h=exp(Z_i1app)/denom
-      p_i2h=exp(Z_i2app)/denom
-      p_i3h=1- p_i1h- p_i2h
-      return(list("p_1hatmatrix"=p_i1h,"p_2hatmatrix"=p_i2h,"p_3hatmatrix"=p_i3h))
-    }
-
-  }
-  ###noise group
-  if (sparse==5){
-    mu_1=function(t){
-      3.8+4*t
-      #-0.64+4*t    #4.5+4*t   #sparse 3.8+4*t
-      #rep(10,length(t))  #1
-
-    }
-    mu_2=function(t){
-      #1.5+4*t^2
-      0.97+6*t^2
-      #t-3
-      #rep(8,length(t))  #2
-
-    }
-
-    p_ihat=function(Z_i1app,Z_i2app){
-      denom=(1+exp(Z_i1app)+exp(Z_i2app))
-      p_i1h=exp(Z_i1app)/denom
-      p_i2h=exp(Z_i2app)/denom
-      p_i3h=1- p_i1h- p_i2h
-      return(list("p_1hatmatrix"=p_i1h,"p_2hatmatrix"=p_i2h,"p_3hatmatrix"=p_i3h))
-    }
-
-  }
-
-
-  mu_vec=rep(0,k)
-
-
-  psi_fn=function(k){
-
-    psi_k1=matrix(rep(1,length(t)*k),ncol=k)
-    psi_k2=matrix(rep(1,length(t)*k),ncol=k)
-    for (i in 1:k) {
-      psi_k1[,i]=sin(2*i*pi*t )
-      psi_k2[,i]=cos(2*i*pi*t )
-    }
-    list("psi_k1"=psi_k1,"psi_k2"=psi_k2)
-  }
-
-
-  t=seq(from = st,to = et, length=datapoints)
-
-  X_i=array(0,dim=c(q,datapoints,n))  #multinormial results: row is level q, column is time points, n is the number of subjects, each column only has one row of 1 and every other rows are 0
-  X_nt=matrix(rep(1,n*length(t)),nrow=n,ncol=length(t))  #true observations of categorical-valued outcome, each row represent one subject, columns represent time points
-  score_matrix=matrix(rep(1,n*k),nrow=n,ncol=k)  #row is number of subjects, column is the number of eigen functions
-  psi_score_matrix_1=matrix(rep(1,n*length(t)),ncol=n)  #dim: length(t)*nsubjects
-  psi_score_matrix_2=matrix(rep(1,n*length(t)),ncol=n)
-  Z_i1=matrix(rep(1,n*length(t)),nrow=n)  #True latent curves1:row is n subjects, col is t time points
-  Z_i2=matrix(rep(1,n*length(t)),nrow=n) #True latent curve 2
-  p_i1=matrix(rep(0,n*length(t)),nrow=n)  #True p_i1
-  p_i2=matrix(rep(0,n*length(t)),nrow=n)  #True p_i2
-  p_i3=matrix(rep(0,n*length(t)),nrow=n)  #True p_i3
-  for (i in 1:n){
-    set.seed(seed+i)
-
-    if (k==3){
-      if (scorevar==1){
-        #score varies based on i
-        score_1=score(0,1)
-        score_2=score(0,sqrt(1/2))
-        score_3=score(0,1/2)
-
+    # generate clusters
+    CLSTF1 <- generate_data_scenario(k=3,n=n1, m=m, setting=1, scenario, Q=3)
+    CLSTF2 <- generate_data_scenario(k=3,n=n2, m=m, setting=2, scenario,  Q=3)
+    CLSTF3 <- generate_data_scenario(k=3,n=n3, m=m, setting=3, scenario,  Q=3)
+    
+    
+    # Recover the latent Gaussian process
+    Z1<-cbind(CLSTF1$Z1,CLSTF2$Z1 , CLSTF3$Z1  )
+    Z2<-cbind(CLSTF1$Z2,CLSTF2$Z2 , CLSTF3$Z2  )
+    
+    # Recover the true probab curves 
+    p1<-cbind(CLSTF1$p1,CLSTF2$p1 , CLSTF3$p1  )
+    p2<-cbind(CLSTF1$p2,CLSTF2$p2 , CLSTF3$p2  )
+    p3<-cbind(CLSTF1$p3,CLSTF2$p3 , CLSTF3$p3  )
+    p<-list(p1=p1 ,p2=p2, p3=p3)
+    
+    #generate categFD
+    set.seed(seed0+ii*100)
+    out <- generate_CategFD_scenario(p=p)
+    
+    X<- out$X  
+    W<- out$W
+    
+    
+    #######add 7/25/2023 while loop to update cluster 3
+    ##################################################
+    Q_vals <- unique(c(W))
+    
+    if(is.numeric(Q_vals)) 
+      Q_vals<- sort(Q_vals)
+    ###############add to exclude the rare event at the end
+    ################
+    #W m*n  n=n1 72 +n2 22+n3. n1+1 : (n1+n2)
+    
+    for (clstr_2_idx in 1:n) {
+      if (clstr_2_idx %in% 1:n1 ){
+        setting_choice=1
       }
-
-      if (scorevar==2){
-        #score varies based on i
-        score_1=score(0,1)
-        score_2=score(0,sqrt(1/3))
-        score_3=score(0,1/3)
+      
+      if (clstr_2_idx %in% (n1+1):(n1+n2) ){
+        setting_choice=2
       }
-
-      if (scorevar==3){
-        #score varies based on i
-        score_1=score(0,1)
-        score_2=score(0,sqrt(1/4))
-        score_3=score(0,1/4)
+      
+      if (clstr_2_idx %in% (n1+n2+1):(n) ){
+        setting_choice=3
       }
-
-
-      if (scorevar==4){
-        #score varies based on i
-        score_1=score(-0.5,1)
-        score_2=score(1,sqrt(1/2))
-        score_3=score(0.25,1/2)
+      
+      
+      tolcat = table(W[, clstr_2_idx])
+      catorder = order(tolcat, decreasing = TRUE)
+      numcat = length(catorder)
+      refcat = catorder[numcat]
+      Wnew = matrix(0, nrow = m, ncol = 5)
+      count_iter = 0
+      while ((min(as.numeric(tolcat)) == 1 && W[, clstr_2_idx][m] == refcat && count_iter < 100)
+             || (min(as.numeric(tolcat)) == 1 && W[, clstr_2_idx][1] == refcat && count_iter < 100))
+      {
+        count_iter = count_iter + 1
+        print(cat("count_iter: ", count_iter))
+        CLSTF22 = generate_data_scenario(
+          k = 3,
+          n = 5,
+          m = m,
+          setting = setting_choice,
+          scenario = "A",
+          Q = 3
+        )
+        
+        # 
+        # Recover the true probab curves
+        p11 <- CLSTF22$p1
+        p21 <- CLSTF22$p2
+        p31 <- CLSTF22$p3
+        
+        p111 <- list(p1 = p11 , p2 = p21, p3 = p31)
+        out1 <- generate_CategFD_scenario(p = p111)
+        
+        #X <- out$X #n,m, q
+        Wnew <- out1$W #m,n.  m*5
+        W[, clstr_2_idx] = Wnew[, 3]
+        ###
+        # Recover the latent Gaussian process
+        Z1[,clstr_2_idx] <- CLSTF22$Z1[,3]
+        Z2[,clstr_2_idx] <- CLSTF22$Z2[,3]
+        ###########
+        
+        w1 = W[, clstr_2_idx]
+        for (j in 1:m)
+          X[clstr_2_idx, j, which(Q_vals == w1[j])] <- 1
+        
+        tolcat = table(W[, clstr_2_idx])
+        catorder = order(tolcat, decreasing = TRUE)
+        numcat = length(catorder)
+        refcat = catorder[numcat]
+        Wnew = matrix(0, nrow = m, ncol = 5)
+        
       }
-
-      score_vector=cbind(score_1,score_2,score_3)
+      X = X
     }
+    
+    
+    ###########
+    
+    #ESTIMATION
+    categFD_est <- estimate_categFD(X=X, tt=tt)
+    
+    # recover latent process
+    Z1_est=categFD_est$Z1_est
+    Z2_est=categFD_est$Z2_est
+    
+    #recover =probabilities for each category
+    p1_est<-categFD_est$p1_est
+    p2_est<-categFD_est$p2_est
+    p3_est<-categFD_est$p3_est
+    
+  if (n==100){
+    # evaluate performance Z and P
+    rmse1_temp <- c(by(mse_bw_matrix(Z1,Z1_est) , true_cluster, mean))
+    rmse2_temp <- c(by(mse_bw_matrix(Z2,Z2_est), true_cluster, mean))
+    rmse[ii, ,] <- rbind(rmse1_temp,rmse2_temp )
+    
+    error.p1<- mse_bw_matrixp(p1,p1_est)
+    error.p2<- mse_bw_matrixp(p2,p2_est)
+    error.p3<- mse_bw_matrixp(p3,p3_est)
+    
+    
+    hellinger[ii, ,] <-  rbind( c(by(error.p1, true_cluster, mean)),
+                                c(by(error.p2, true_cluster, mean)),
+                                c(by(error.p3, true_cluster, mean)))
+    
+  }
+   
+  
+    
+    # Record clustering performance. USE only Z
+    #**** extract_scores_UNIVFPCA is the FASTEST
+    mfpca_true <-extract_scores_UNIVFPCA(mZ1=Z1, mZ2=Z2,  tt=tt , PVE=0.95)
+    #plot(  scores_true$scores[, 1:2])
+    mfpca_est <- extract_scores_UNIVFPCA(mZ1=Z1_est, mZ2=Z2_est, tt=tt , PVE=0.95)
+    
 
-
-
-    if (k==4){
-
-      if (scorevar==1){
-        score_1=score(0,1)
-        score_2=score(0,sqrt(1/2))
-        score_3=score(0,1/2)
-        score_4=score(0,sqrt(1/8))
-        # cpve=cumsum(c(1,sqrt(1/2),1/2,sqrt(1/8)))/sum(c(1,sqrt(1/2),1/2,sqrt(1/8)))
-        # cvar=c(1,sqrt(1/2),1/2,sqrt(1/8))
-      }
-
-
-
-      if (scorevar==2){
-        score_1=score(0,1)
-        score_2=score(0,sqrt(1/3))
-        score_3=score(0,1/3)
-        score_4=score(0,sqrt(1/27))
-        # cpve=cumsum(c(1,sqrt(1/3),1/3,sqrt(1/27)))/sum(c(1,sqrt(1/3),1/3,sqrt(1/27)))
-        # cvar=c(1,sqrt(1/3),1/3,sqrt(1/27))
-      }
-
-
-
-      if (scorevar==3){
-        score_1=score(0,1)
-        score_2=score(0,sqrt(1/4))
-        score_3=score(0,1/4)
-        score_4=score(0,sqrt(1/64))
-        # cpve=cumsum(c(1,sqrt(1/4),1/4,sqrt(1/64)))/sum(c(1,sqrt(1/4),1/4,sqrt(1/64)))
-        # cvar=c(1,sqrt(1/4),1/4,sqrt(1/64))
-      }
-      score_vector=cbind(score_1,score_2,score_3,score_4)
-
-    }
-
-
-
-
-
-
-
-    psi_k1=psi_fn(k)$psi_k1
-    psi_k2=psi_fn(k)$psi_k2
-
-    #Z varies based on i
-    #psi t*k, score: t*k,  psi%*%t(score)
-    psi_score_matrix_1[,i]=psi_k1%*%t(score_vector)
-    Z_i1[i,]=mu_1(t)+psi_score_matrix_1[,i]
-
-    psi_score_matrix_2[,i]=psi_k2%*%t(score_vector)
-    Z_i2[i,]=mu_2(t)+psi_score_matrix_2[,i]
-
-
-    #p varies based on i
-    denominator=(1+exp(as.vector(Z_i1[i,]))+exp(as.vector(Z_i2[i,])))
-    p_i1[i,]=(exp(as.vector(Z_i1[i,])))/denominator
-    p_i2[i,]=(exp(as.vector(Z_i2[i,])))/denominator
-    p_i3[i,]=1-p_i1[i,]-p_i2[i,]
-
-
-    #X_i varies based on i
-    #X_i=matrix(rep(1,k*length(t)),nrow=k,ncol=length(t))
-
-    for (j in 1:length(t)){
-      X_i[,j,i]=rmultinom(n=1, size=1, prob=c(p_i1[i,j],p_i2[i,j],p_i3[i,j]))
-    }
-
-    #X_it varies based on i
-    X_it=c(1)
-    for (j in 1:length(t)){
-      X_it[j]=as.vector(which(X_i[,j,i] == 1))
-    }
-    X_nt[i,]=X_it
-
-    #collect score matrix
-    score_matrix[i,]=score_vector
+    
+    #KMEANS
+    true_kmeans_temp <- kmeans_cluster(data=mfpca_true$scores)$label
+    est_kmeans_temp <- kmeans_cluster(data=mfpca_est$scores)$label
+    
+    #FADP
+    true_fadp_temp <- fadp_cluster(mZ1=Z1, mZ2=Z2, tt=tt)$label
+    est_fadp_temp <- fadp_cluster(mZ1=Z1_est, mZ2=Z2_est, tt=tt)$label
+    
+    #dbscan
+    true_dbscan_temp <- dbscan_cluster(data=mfpca_true$scores,1)$label
+    est_dbscan_temp <- dbscan_cluster(data=mfpca_est$scores,1)$label
+    
+    #record results
+    true_dbscan<- cbind(true_dbscan, true_dbscan_temp)
+    est_dbscan <- cbind(est_dbscan, est_dbscan_temp)
+    
+    
+    true_kmeans<- cbind(true_kmeans, true_kmeans_temp)
+    est_kmeans <- cbind(est_kmeans,  est_kmeans_temp)
+    
+    true_fadp<- cbind(true_fadp, true_fadp_temp)
+    est_fadp <- cbind(est_fadp, est_fadp_temp)
+    print(ii)
+  }
+  
+  
+  if (n==100){
+    # Assess accuracy in the simulation study
+    mse_sim= apply(rmse, c(2,3), mean)
+    hellinger_sim= apply(hellinger, c(2,3), mean)
+    
   }
 
-  #collect value and graph
-  #collect first two rows of observed binary curves
-  X_i1=t(X_i[1,,])  #all n row subjects , t columns values related to p1
-  X_i2=t(X_i[2,,]) #all n row subjects , t columns values related to p2
-  X_i3=t(X_i[3,,]) #all n row subjects , t columns values related to p3
-
-  #recover Z_i1 hat using X_i[1,all j, all n] only related to p1
-  Z_i1hat=Z_ihat(X_i1,t)
-  #recover Z_i2 hat using X_i[2,all j, all n] only related to p2
-  Z_i2hat=Z_ihat(X_i2,t)
-  Z_i3hat=Z_ihat(X_i3,t)
-
-
-
-  if(ps==1){
-    Z_i1hatstar=Z_i1hat+log(1+exp(Z_i3hat))-log(1+exp(Z_i1hat))-Z_i3hat
-    Z_i2hatstar=Z_i2hat+log(1+exp(Z_i3hat))-log(1+exp(Z_i2hat))-Z_i3hat
+  
+  results<- list(
+    #dbscan
+    true_dbscan_ri=apply(true_dbscan, 2, function(cluster) 
+      evaluate_cluster(true_cluster=true_cluster_db, new_cluster=cluster,0)$ri), 
+    true_dbscan_ari=apply(true_dbscan, 2, function(cluster) 
+      evaluate_cluster(true_cluster=true_cluster_db, new_cluster=cluster,0)$ari), 
+    true_dbscan_cpn=apply(true_dbscan, 2, function(cluster) 
+      evaluate_cluster(true_cluster=true_cluster_db, new_cluster=cluster,0)$cpn),
+    
+    
+    est_dbscan_ri=apply(est_dbscan, 2, function(cluster) 
+      evaluate_cluster(true_cluster=true_cluster_db, new_cluster=cluster,0)$ri),
+    est_dbscan_ari=apply(est_dbscan, 2, function(cluster) 
+      evaluate_cluster(true_cluster=true_cluster_db, new_cluster=cluster,0)$ari),
+    est_dbscan_cpn=apply(est_dbscan, 2, function(cluster) 
+      evaluate_cluster(true_cluster=true_cluster_db, new_cluster=cluster,0)$cpn),
+    
+    ###kmeans
+    true_kmeans_ri=apply(true_kmeans, 2, function(cluster) 
+      evaluate_cluster(true_cluster=true_cluster, new_cluster=cluster,3)$ri), 
+    true_kmeans_ari=apply(true_kmeans, 2, function(cluster) 
+      evaluate_cluster(true_cluster=true_cluster, new_cluster=cluster,3)$ari), 
+    true_kmeans_cpn=apply(true_kmeans, 2, function(cluster) 
+      evaluate_cluster(true_cluster=true_cluster, new_cluster=cluster,3)$cpn),
+    
+    
+    
+    est_kmeans_ri=apply(est_kmeans, 2, function(cluster) 
+      evaluate_cluster(true_cluster=true_cluster, new_cluster=cluster,3)$ri),
+    est_kmeans_ari=apply(est_kmeans, 2, function(cluster) 
+      evaluate_cluster(true_cluster=true_cluster, new_cluster=cluster,3)$ari),
+    est_kmeans_cpn=apply(est_kmeans, 2, function(cluster) 
+      evaluate_cluster(true_cluster=true_cluster, new_cluster=cluster,3)$cpn),
+    
+    #fadp
+    true_fadp_ri=apply(true_fadp, 2, function(cluster) 
+      evaluate_cluster(true_cluster=true_cluster, new_cluster=cluster,3)$ri), 
+    true_fadp_ari=apply(true_fadp, 2, function(cluster) 
+      evaluate_cluster(true_cluster=true_cluster, new_cluster=cluster,3)$ari), 
+    true_fadp_cpn=apply(true_fadp, 2, function(cluster) 
+      evaluate_cluster(true_cluster=true_cluster, new_cluster=cluster,3)$cpn),
+    
+    
+    est_fadp_ri=apply(est_fadp, 2, function(cluster) 
+      evaluate_cluster(true_cluster=true_cluster, new_cluster=cluster,3)$ri),
+    est_fadp_ari=apply(est_fadp, 2, function(cluster) 
+      evaluate_cluster(true_cluster=true_cluster, new_cluster=cluster,3)$ari),
+    est_fadp_cpn=apply(est_fadp, 2, function(cluster) 
+      evaluate_cluster(true_cluster=true_cluster, new_cluster=cluster,3)$cpn)
+    
+  ) 
+  
+  
+  
+  cluster_table_true=c(mean(results$true_fadp_ri),mean(results$true_fadp_ari), mean(results$true_fadp_cpn),
+                       mean(results$true_kmeans_ri),mean(results$true_kmeans_ari),mean(results$true_kmeans_cpn),
+                       
+                       mean(results$true_dbscan_ri),
+                       mean(results$true_dbscan_ari),
+                       mean(results$true_dbscan_cpn)
+  )
+  names(cluster_table_true)=c("fadp RI","fadp ARI","fadp cpn",
+                              "kmeans RI","kmeans ARI","kmeans cpn",
+                              "dbscan RI","dbscan ARI","dbscan cpn"
+  )
+  
+  
+  cluster_table_est=c(mean(results$est_fadp_ri),mean(results$est_fadp_ari),
+                      
+                      mean(results$est_fadp_cpn),
+                      
+                      
+                      mean(results$est_kmeans_ri),mean(results$est_kmeans_ari), 
+                      mean(results$est_kmeans_cpn),
+                      mean(results$est_dbscan_ri),
+                      mean(results$est_dbscan_ari),mean(results$est_dbscan_cpn)
+  )
+  names(cluster_table_est)=c("fadp RI","fadp ARI","fadp cpn",
+                             "kmeans RI","kmeans ARI","kmeans cpn",
+                             "dbscan RI","dbscan ARI","dbscan cpn"
+  )
+  
+  
+  cluster_table_est_se=c(sd(results$est_fadp_ri)/sqrt(mc_sims),sd(results$est_fadp_ari)/sqrt(mc_sims),
+                         
+                         sd(results$est_fadp_cpn)/sqrt(mc_sims),
+                         
+                         
+                         sd(results$est_kmeans_ri)/sqrt(mc_sims),sd(results$est_kmeans_ari)/sqrt(mc_sims), 
+                         sd(results$est_kmeans_cpn)/sqrt(mc_sims),
+                         sd(results$est_dbscan_ri)/sqrt(mc_sims),
+                         sd(results$est_dbscan_ari)/sqrt(mc_sims),sd(results$est_dbscan_cpn)/sqrt(mc_sims)
+  )
+  names(cluster_table_est_se)=c("fadp RI","fadp ARI","fadp cpn",
+                                "kmeans RI","kmeans ARI","kmeans cpn",
+                                "dbscan RI","dbscan ARI","dbscan cpn"
+  )
+  
+  if (n==100){
+    return(list("cluster_table_true"=cluster_table_true,"cluster_table_est"=cluster_table_est,
+                "cluster_table_est_se"=cluster_table_est_se,"mse"=mse_sim,"hellinger"=hellinger_sim))
+    
   }
-
-
-  if(ps==2){
-    smooth_p1=(1+exp(-Z_i1hat))^(-1)
-    smooth_p2=(1+exp(-Z_i2hat))^(-1)
-    smooth_p3=1-smooth_p1-smooth_p2
-    Z_i1hatstar=log(smooth_p1)-log(smooth_p3)
-    Z_i2hatstar=log(smooth_p2)-log(smooth_p3)
-  }
-
-  if(ps==3){
-    common_check=1-exp(Z_i1hat+Z_i2hat)-exp(Z_i2hat)
-    common_check[common_check<=0]=0.001
-    Z_i1hatstar=Z_i1hat+log(1+exp(Z_i2hat))-log(common_check)
-    Z_i2hatstar=Z_i2hat+log(1+exp(Z_i1hat))-log(common_check)
-  }
-
-
-
-  if (ps==4){
-    common_check=1-exp(Z_i1hat+Z_i2hat)-exp(Z_i2hat)
-    common_check[common_check<=0]=0.001
-    Z_i1hatstar=Z_i1hat-log(common_check)
-    Z_i2hatstar=Z_i2hat+log(1+exp(Z_i1hat))-log(common_check)
-  }
-
-
-
-  p_i1hat=p_ihat(Z_i1hatstar,Z_i2hatstar)$p_1hatmatrix
-  p_i2hat=p_ihat(Z_i1hatstar,Z_i2hatstar)$p_2hatmatrix
-  p_i3hat=p_ihat(Z_i1hatstar,Z_i2hatstar)$p_3hatmatrix
-
-
-  # truel=list("TrueX1"=X_i1,"TrueX2"=X_i2,"TrueX3"=X_i3,"TrueZ_i1"=Z_i1,"TrueZ_i2"=Z_i2,"Truep_i1"=p_i1,"Truep_i2"=p_i2,"Truep_i3"=p_i3,"Truescore_matrix"=score_matrix,"Truecatcurve"=X_nt)
-  truel=list("TrueZ_i1"=Z_i1,"TrueZ_i2"=Z_i2,"Truep_i1"=p_i1,"Truep_i2"=p_i2,"Truep_i3"=p_i3,"Truescore_matrix"=score_matrix,"Truecatcurve"=X_nt,"comp1"=psi_k1,"comp2"=psi_k2)
-  est=list("EstimateZ_i1"=Z_i1hatstar,"EstimateZ_i2"=Z_i2hatstar,"Estimatep_i1"=p_i1hat,"Estimatep_i2"=p_i2hat,"Estimatep_i3"=p_i3hat)
-  return(list("Trueth"=truel,"Est"=est))
-}
-
-
-##function to visualize the clustering results
-plot_cluster=function(scores_z,dbcluster,kcluster,st,et,datapoints){
-  #DSCAN
-  clusterdata=data.frame(scores_z)
-  clusterdata$Cluster=as.factor(dbcluster)
-  #clusterdata$Cluster=as.factor(res$cluster)
-  colnames(clusterdata)[1:2] =c("ksi1","ksi2")
-
-  tps <- ggplot2::ggplot(clusterdata,ggplot2::aes(ksi1,ksi2,colour = Cluster)) + ggplo2::geom_point(aes(shape=Cluster),size=3)+ggplot2::ggtitle(paste0("DBSCAN Cluster Results",'\n',"(",dim(clusterdata)[1]," Subjects",")")) +
-    ggplot2::xlab(expression('Score '* widehat(xi[i1]))) + ggplot2::ylab(expression('Score '* widehat(xi[i2])))+ ggplot2::theme(plot.title = element_text(hjust = 0.5))+
-    ggplot2::theme(text=element_text(size = 20))
-  ###kmeans
-
-  clusterdatak=data.frame(scores_z)
-  clusterdatak$Cluster=as.factor(kcluster)
-  colnames(clusterdatak)[1:2] =c("ksi1","ksi2")
-  tpskmeans <- ggplot2::ggplot(clusterdatak,ggplot2::aes(ksi1,ksi2,colour = Cluster)) + ggplot2::geom_point(aes(shape=Cluster),size=3)+ggplot2::ggtitle(paste0("Kmeans Cluster Results",'\n',"(",dim(clusterdatak)[1]," Subjects",")")) +
-    ggplot2::xlab(expression('Score '* widehat(xi[i1]))) + ggplot2::ylab(expression('Score '* widehat(xi[i2])))+ ggplot2::theme(plot.title = element_text(hjust = 0.5))+
-    ggplot2::theme(text=element_text(size = 20))
-
-  return(list("figdbscan"=tps,"figkmeans"=tpskmeans))
-}
-
-##generate simulate data
-catsim=function(seed=123,datapoints,n,sparse1,sparse2,scorevar1,scorevar2,ps,st,et,k,propc1,propc2,propnoise){
-  clustern50t250=generate_data_scenario(k=k,n=n*propc1,datapoints,sparse1,scorevar1,ps,seed=seed,st,et)
-  clustern50t250p2=generate_data_scenario(k=k,n=n*propc2,datapoints,sparse2,scorevar2,ps,seed=seed,st,et)
-  clustern50t250p3=generate_data_scenario(k=k,n=n*propnoise,datapoints,5,scorevar1,ps,seed=seed,st,et)
-
-  truen100t250=mapply(rbind,clustern50t250$Trueth,clustern50t250p2$Trueth,clustern50t250p3$Trueth,SIMPLIFY=FALSE,USE.NAMES = TRUE)
-  estn100t250=mapply(rbind,clustern50t250$Est,clustern50t250p2$Est,clustern50t250p3$Est,SIMPLIFY=FALSE,USE.NAMES = TRUE)
-
-  combn100t250=list("Trueth"=truen100t250, "Est"=estn100t250)
-  datainput=combn100t250$Trueth$Truecatcurve
-  return("catdata"=datainput)
-}
-
-##plot distance
-plot_kdistance=function(scores_z,knnum,pct){
-  dist=dbscan::kNNdist(scores_z, k = knnum)
-  distdata=data.frame(sort(dist))
-  distdata$index=1:dim(distdata)[1]
-  ninty5p=quantile(dist, probs = pct)
-  dp <- ggplot2::ggplot(distdata,ggplot2::aes(index,sort.dist.)) + ggplot2::geom_line()+ggplot2::ggtitle(paste0(knnum,"-NN Distance Plot ",'\n',"(",dim(distdata)[1]," Subjects",")")) +
-    ggplot2::xlab("Points sorted by Distance") + ggplot2::ylab("Distance")+ ggplot2::theme(plot.title = element_text(hjust = 0.5))+ggplot2::geom_hline(yintercept=ninty5p, color = "red")+
-    ggpplot2::geom_text(data=data.frame(round(ninty5p,2)),
-              ggplot2::aes(x=dim(distdata)[1]/2,y=1.2*ninty5p,label=paste0("Distance at ",gsub("%$","",row.names(data.frame(round(ninty5p,2)))),"th percentile= ",round(ninty5p,2))))
-  return(list("kdistfig"=dp))
-}
-
-
-#plot latent curves and probability curves
-#vectort=c(which(cluster==0))
-#plot_latent=function(zlatent,phat,st,et,cluster,labelnum,argval,zmean){
-plot_latent=function(zlatent,phat,st,et,cluster,labelnum,argval){
-  vectort=c(which(cluster==labelnum))
-  datapoints=dim(zlatent)[2]
-
-  n=length(vectort)
-  ########################################################################################
-
-  #plot 1: truth and smoothed
-  ########################################################################################
-  #entire block is  n*t dimension
-  #truth Z, P and smoothed Z, P
-  numz=dim(zlatent)[3]
-  nump=dim(phat)[3]
-  zest=zlatent[vectort,,]
-  pest=phat[vectort,,]
-
-  #Z_i
-  #meanz=colMeans(zest)   #t*numz
-  # meanz=zmean
-  #meanfnZ[[1]]@X
-  for (i in 1:numz){
-    matplot(argval, t(zest[,,i]),
-            type='l', lty=1, col="light grey",
-            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
-            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
-
-            main=mtext(bquote("Estimated Latent Cruve ")),
-            xlab="Time", ylab="Value")
-    #lines(argval,meanz[,i] ,
-    #type='l', lty=1, lwd=2, col = "red")
-    #lines(argval,zmean[[i]]@X ,
-    #type='l', lty=1, lwd=2, col = "red")
-
-
-    # legend(x = "topleft",  #horiz = TRUE,        # Position
-    #        legend = c("Individual", "Mean"),  # Legend texts
-    #        #lty = c(1, 2),           # Line types
-    #        col = c("grey", "red"),           # Line colors
-    #        lwd = 2)
-
-  }
-
-
-
-  ###################################################################################
-  #p_i
-
-  meanp=colMeans(pest)   #t*nump
-
-  for (i in 1:nump){
-    matplot(argval, t(pest[,,i]),
-            type='l', lty=1, col="light grey",
-            #main=mtext(bquote("Estimated Latent Cruve "*widehat('p')[i])),
-            #xlab="Number of Datapoints", ylab=expression(widehat('p')[i]))
-            main=mtext(bquote("Estimated Probability Cruve ")),
-            xlab="Time", ylab='Value')
-    lines(argval,meanp[,i] ,
-          type='l', lty=1, lwd=2, col = "red")
-    # legend(x = "topright",          # Position
-    #        legend = c("Individual", "Mean"),  # Legend texts
-    #        #lty = c(1, 2),           # Line types
-    #        col = c("grey", "red"),           # Line colors
-    #        lwd = 2)                 # Line width
-  }
-
-}
-
-#rand index from simulated data
-randfn=function(dbcluster,kcluster,nsub){
-  tlabel=c(rep(1,nsub*0.7),rep(2,nsub*0.3),rep(3,nsub*0.04))
-
-  randdbscan=rand.index(tlabel,dbcluster)
-  randkmeans=rand.index(tlabel,kcluster)
-  return(list("randd"=randdbscan,"randk"=randkmeans))
-}
-####elbow method
-elbow=function (data, plot = TRUE) {
-    if (missing(data)) {
-        stop("Please provide a two-columns data frame.")
-    }
-    if (!is.list(data)) {
-        stop("`data` must be a two-columns data frame.")
-    }
-    if (ncol(data) > 2) {
-        warning("Only the first two columns will be considered.")
-    }
-    if (!is.numeric(data[, 1]) || !is.numeric(data[, 2])) {
-        stop("Non-numeric data detected.")
-    }
-    if (sum(is.na(data[, 1])) + sum(is.na(data[, 2]))) {
-        stop("Missing values detected.")
-    }
-    if (!is.logical(plot)) {
-        stop("`plot` must be a boolean.")
-    }
-    data <- data[, 1:2]
-    data <- data[order(data[, 1]), ]
-    constant <- data[c(1, nrow(data)), ]
-    colnames(constant) <- c("x", "y")
-    mod <- stats::lm(y ~ x, data = constant)
-    data[, "constant"] <- round(mod$coef[[1]] + mod$coef[[2]] * 
-        data[, 1], 3)
-    pos <- round(nrow(data)/2)
-    if (data[pos, "constant"] < data[pos, 2]) {
-        ymin <- min(data[, 2])
-        data[, "benefits"] <- ymin + round(data[, 2] - data[, 
-            "constant"], 3)
-        maxi <- data[which.max(data[, "benefits"]), ]
-    }
-    else {
-        ymax <- max(data[, 2])
-        data[, "benefits"] <- ymax - round(data[, "constant"] - 
-            data[, 2], 3)
-        maxi <- data[which.min(data[, "benefits"]), ]
-    }
-    xxx <- list()
-    xxx[[1]] <- maxi[1, 1]
-    xxx[[2]] <- data
-    names(xxx) <- c(paste(colnames(data)[1], "selected", sep = "_"), 
-        "data")
-    if (plot) {
-        xlims <- range(data[, 1])
-        ylims <- c(min(c(data[, 2], data[, 3], data[, 4])), max(data[, 
-            2]))
-        graphics::par(mar = c(2.5, 2.5, 1.5, 1.5), family = "serif", 
-            cex.axis = 0.85, mgp = c(2, 0.15, 0), tcl = -0.25, 
-            fg = "#666666", col = "#666666", col.axis = "#666666")
-        graphics::plot(x = data[, 1], y = data[, 2], xlim = xlims, 
-            ylim = ylims, ann = FALSE, axes = FALSE, type = "n")
-        graphics::grid()
-        graphics::box()
-        graphics::par(mgp = c(2, 0, 0))
-        graphics::axis(1, lwd = 0)
-        graphics::axis(1, maxi[, 1], lwd = 0, font = 2, col.axis = "black")
-        graphics::par(mgp = c(2, 0.25, 0))
-        graphics::axis(2, lwd = 0, las = 1)
-        at <- round(maxi[, 2], 3)
-        graphics::axis(2, at, lwd = 0, font = 2, col.axis = "black", 
-            las = 1)
-        graphics::mtext(side = 1, cex = 1, line = 1.25, text = expression("x"))
-        graphics::mtext(side = 2, cex = 1, line = 1.45, text = expression("f(x)"))
-        graphics::polygon(x = c(data[, 1], data[1, 1]), y = c(data[, 
-            "benefits"], data[1, "benefits"]), col = "#aaaaaa66", 
-            border = "#aaaaaa")
-        graphics::points(x = data[, 1], y = data[, 2], type = "b", 
-            pch = 19, col = "black")
-        graphics::lines(x = rep(maxi[1, 1], 2), y = c(par()$usr[3], 
-            maxi[1, 2]), col = "black", lwd = 0.5)
-        graphics::lines(x = c(par()$usr[1], maxi[1, 1]), y = rep(maxi[1, 
-            2], 2), col = "black", lwd = 0.5)
-        graphics::points(x = maxi[, 1], y = maxi[, 2], type = "b", 
-            pch = 19, cex = 1.5, col = "black")
-        graphics::points(x = maxi[, 1], y = maxi[, 4], type = "b", 
-            pch = 19, cex = 1, col = "#666666")
-    }
-    return(xxx)
+  
+ else{
+   return(list("cluster_table_true"=cluster_table_true,"cluster_table_est"=cluster_table_est,
+               "cluster_table_est_se"=cluster_table_est_se))
+   
+ }
 }
 
 
