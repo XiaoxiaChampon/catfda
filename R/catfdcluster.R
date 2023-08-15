@@ -6,16 +6,12 @@
 #####################################################################
 
 
-#source("utility_functions.R")
 ##input categorical functional data n*t and output clustering results, latent curves, probability curves
+###input is catfd_W, tt, max.nc,min.nc
+###output clustering results, accuracy, estimate
 #catfd=matrix(sample(c(0,1,2),250*100,replace = TRUE),nrow=100)
 
-
-##input categorical functional data n*t and output clustering results, latent curves, probability curves
-
-#catfd=matrix(sample(c(0,1,2),250*100,replace = TRUE),nrow=100)
-
-catfdcluster=function(catfd,argval,splines1D,M,knnum,pct,minPts,max.nc,min.nc,method,numdim){
+catfdcluster=function(catfd,argval,max.nc,min.nc){
   st=min(argval)
   et=max(argval)
   datapoints=dim(catfd)[2]
@@ -43,6 +39,8 @@ catfdcluster=function(catfd,argval,splines1D,M,knnum,pct,minPts,max.nc,min.nc,me
     #Zihat[,,i]=Z_ihat(datacopy[,,i],t)
   #}
 
+#estimate_categFD <- function(X=NULL, W=NULL, tt, basis_size=25, method="ML", sim=TRUE)
+  
   #input observed X_i1 or X_i2 binary curves and return smoothed p_i1hat, p_i2hat
   pihat=array(data=NA,c(nsub,ntime,numcat))
   for (i in 1:numcat){
