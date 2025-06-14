@@ -8,7 +8,7 @@ Title: categorical functional data analysis
 
 Version: 0.1.0
 
-Author: Xiaoxia Champon, Ana-Maria Staicu, Anthony Weishampel, William Rand
+Author: Xiaoxia Champon, Chathura Jayalath
 
 Maintainer: The package maintainer <xiachampon@gmail.com>
 
