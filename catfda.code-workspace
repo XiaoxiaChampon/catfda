@@ -1,0 +1,24 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        "r.rterm.option": [],
+        "r.plot.useHttpgd": true,
+        "r.bracketedPaste": true,
+        "r.sessionWatcher": true,
+        "r.alwaysUseActiveTerminal": true,
+        "files.associations": {
+            "*.R": "r",
+            "*.Rmd": "rmd"
+        }
+    },
+    "extensions": {
+        "recommendations": [
+            "reditorsupport.r",
+            "rdebugger.r-debugger"
+        ]
+    }
+}
