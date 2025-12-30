@@ -19,6 +19,17 @@ GetXFromW <- function(W) {
   return(X)
 }
 
+#' Wrapper for backward compatibility with old CamelCase naming
+#' @param choice Estimation method: "multinomial", "probit", or "binomial"
+#' @param time_points Time points vector
+#' @param w_mat Categorical data matrix
+#' @param n_basis Number of basis functions
+#' @param method GAM fitting method
+#' @return List with estimated Z and p curves
+EstimateCategFuncData <- function(choice, time_points, w_mat, n_basis = 25, method = "ML") {
+  estimate_categ_func_data(choice, time_points, w_mat, n_basis, method)
+}
+
 #' Create one-hot encoded functional data array from categorical observations
 #'
 #' @description
