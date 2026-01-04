@@ -26,6 +26,7 @@ GetXFromW <- function(W) {
 #' @param n_basis Number of basis functions
 #' @param method GAM fitting method
 #' @return List with estimated Z and p curves
+#' @export
 EstimateCategFuncData <- function(choice, time_points, w_mat, n_basis = 25, method = "ML") {
   estimate_categ_func_data(choice, time_points, w_mat, n_basis, method)
 }
@@ -69,18 +70,38 @@ EstimateCategFuncData <- function(choice, time_points, w_mat, n_basis = 25, meth
 #' apply(x_array[1, , ], 1, sum)  # Should be all 1s
 #'
 #' @export
-get_x_from_w <- function(w_mat) {
-  stopifnot(is.matrix(w_mat))
+get_x_from_w <- function(w_mat, categories = NULL) {
+  # validate w_mat
+  if (!is.matrix(w_mat)) {
+    stop("w_mat must be a matrix")
+  }
+  if (anyNA(w_mat)) {
+    stop("w_mat must not contain NA values")
+  }
+
+  # Extract sorted unique categories
+  if (is.null(categories)) {
+    categories <- sort(unique(as.vector(w_mat)))
+  }
+
+  # validate categories: Ensure categories are unique and sorted
+  if (length(categories) != length(unique(categories))) {
+    stop("categories must contain unique values")
+  }
 
   n_individuals <- ncol(w_mat)
   n_timepoints <- nrow(w_mat)
-
-  # Extract sorted unique categories
-  categories <- sort(unique(as.vector(w_mat)))
   n_categories <- length(categories)
 
   # Map category labels to 1:K indices
-  w_indexed <- apply(w_mat, 2, function(col) match(col, categories))
+  w_indexed <- matrix(match(w_mat, categories),
+                      nrow = n_timepoints,
+                      ncol = n_individuals)
+
+  # Fail fast if unseen category appears
+  if (anyNA(w_indexed)) {
+    stop("w_mat contains values not present in 'categories'")
+  }
 
   # Initialize result array: [individual × time × category]
   x_array <- array(0, dim = c(n_individuals, n_timepoints, n_categories))
