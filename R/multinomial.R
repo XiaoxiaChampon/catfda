@@ -53,7 +53,10 @@ estimate_categ_func_data_multinomial <- function(time_points,
   # w_mapped <- apply(w_mat, 2, function(col) match(col, unique_labels))
 
   # Remap labels to 0...(K-1) for mgcv::multinom (expects 0-based indexing)
-  w_mapped <- apply(w_mat, 2, function(col) match(col, unique_labels) - 1)
+  # The last category (K) must map to 0 (reference class for softmax).
+  # Using modulo K replicates the original `W %% 3` mapping:
+  #   {1,2,3} -> {1,2,0}  (category 3 is the reference)
+  w_mapped <- w_mat %% k_classes
 
   # Preallocate Z and p
   z_list <- vector("list", k_classes - 1)
@@ -163,8 +166,8 @@ estimate_categ_func_data_multinomial_parallel <- function(time_points,
   unique_labels <- sort(unique(as.vector(w_mat)))
   k_classes <- length(unique_labels)
 
-  # Remap labels to 0...(K-1) for mgcv::multinom (expects 0-based indexing)
-  w_mapped <- apply(w_mat, 2, function(col) match(col, unique_labels) - 1)
+  # Remap labels: last category (K) → 0 (reference class for softmax)
+  w_mapped <- w_mat %% k_classes
 
   total_z_rows <- n_timepoints * (k_classes - 1)
 
