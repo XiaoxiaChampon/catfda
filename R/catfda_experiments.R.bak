@@ -60,8 +60,8 @@ if (!dir.exists("outputs/clustersims")){
 # set.seed(123)
 # A_2_binomial <- RunExperiment("A",2,"binomial","test")
 
-set.seed(123)
-A_2_multinomial_new <- RunExperiment("A",2,"multinomial","test")
+# set.seed(123)
+# A_2_multinomial_new <- RunExperiment("A",2,"multinomial","test")
 
 #save(C_2_probit,file="C_2_probit.RData")
 # set.seed(123)
