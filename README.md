@@ -80,3 +80,9 @@ Imports:
      
    3) sample code is in the R folder: cluster_sample.R
 
+## Development Setup
+
+**Quick Start:** For a fast setup guide to connect Visual Studio Code, see [QUICKSTART.md](QUICKSTART.md)
+
+For detailed instructions on how to set up and use this package with Visual Studio Code, see [VISUAL_STUDIO_SETUP.md](VISUAL_STUDIO_SETUP.md).
+

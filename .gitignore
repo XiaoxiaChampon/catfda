@@ -2,3 +2,12 @@
 .Rhistory
 .RData
 .Ruserdata
+
+# VS Code specific files
+.vscode/
+*.code-workspace.bak
+
+# Temporary files
+*.tmp
+*.temp
+/tmp/
