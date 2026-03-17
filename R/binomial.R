@@ -110,14 +110,14 @@ estimate_categ_func_data_binomial_parallel <- function(time_points,
   z_mat <- zp[1:total_z_rows, , drop = FALSE]
   p_mat <- zp[(total_z_rows + 1):nrow(zp), , drop = FALSE]
 
-  # Return list of Z1_est, ..., Z{K-1}_est - already in time × individuals format
+  # Return list of z1_est, ..., z{K-1}_est - already in time × individuals format
   z_out <- rlang::set_names(
     lapply(seq_len(total_z_curves), function(k) {
       z_start <- (k - 1) * n_timepoints + 1
       z_end <- k * n_timepoints
       z_mat[z_start:z_end, ]
     }),
-    paste0("Z", seq_len(total_z_curves), "_est")
+    paste0("z", seq_len(total_z_curves), "_est")
   )
 
   # Return list of p1_est, ..., pK_est
