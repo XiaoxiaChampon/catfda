@@ -18,8 +18,11 @@
 #' coherent than fitting separate binomial models, especially when the number
 #' of categories is large.
 #'
-#' The function automatically detects the number of categories and handles
-#' arbitrary category labels by remapping them to sequential integers.
+#' Category labels can be arbitrary (numeric or character). Internally, labels
+#' are sorted and mapped to positions 1..K via \code{match()}, and then the
+#' K-th position is remapped to 0 to serve as the reference class required by
+#' \code{mgcv::multinom}. The reference category is always the largest
+#' (last in sorted order) original label.
 #'
 #' @examples
 #' # Generate sample data
@@ -44,19 +47,22 @@ estimate_categ_func_data_multinomial <- function(time_points,
   n_individuals <- ncol(w_mat)
   n_timepoints <- nrow(w_mat)
 
-  # Determine number of categories (K)
+  # Determine number of categories (K); sort so the mapping is deterministic.
   unique_labels <- sort(unique(as.vector(w_mat)))
   k_classes <- length(unique_labels)
 
-  # >>>>>> Which is correct?
-  # Remap labels to 1...K if needed
-  # w_mapped <- apply(w_mat, 2, function(col) match(col, unique_labels))
-
-  # Remap labels to 0...(K-1) for mgcv::multinom (expects 0-based indexing)
-  # The last category (K) must map to 0 (reference class for softmax).
-  # Using modulo K replicates the original `W %% 3` mapping:
-  #   {1,2,3} -> {1,2,0}  (category 3 is the reference)
-  w_mapped <- w_mat %% k_classes
+  # Remap arbitrary labels to positions 1..K, then convert the K-th position
+  # to 0 so it becomes the reference class for mgcv::multinom (which requires
+  # 0-based response values where 0 denotes the reference category).
+  #
+  # Two-step rationale:
+  #   match() : maps any label set (e.g. {1,3,5} or {"A","B","C"}) to 1..K
+  #   %% K    : maps position K -> 0, leaving 1..K-1 unchanged
+  #
+  # Example: labels {1,2,3} -> match -> {1,2,3} -> %%3 -> {1,2,0}
+  # Example: labels {0,1,2} -> match -> {1,2,3} -> %%3 -> {1,2,0}  (fixed!)
+  # Example: labels {1,3,5} -> match -> {1,2,3} -> %%3 -> {1,2,0}  (fixed!)
+  w_mapped <- matrix(match(as.vector(w_mat), unique_labels), nrow = nrow(w_mat)) %% k_classes
 
   # Preallocate Z and p
   z_list <- vector("list", k_classes - 1)
@@ -162,12 +168,14 @@ estimate_categ_func_data_multinomial_parallel <- function(time_points,
   n_individuals <- ncol(w_mat)
   n_timepoints <- nrow(w_mat)
 
-  # Determine number of categories (K)
+  # Determine number of categories (K); sort so the mapping is deterministic.
   unique_labels <- sort(unique(as.vector(w_mat)))
   k_classes <- length(unique_labels)
 
-  # Remap labels: last category (K) → 0 (reference class for softmax)
-  w_mapped <- w_mat %% k_classes
+  # Remap arbitrary labels to positions 1..K, then convert the K-th position
+  # to 0 so it becomes the reference class for mgcv::multinom. See the
+  # non-parallel version for a full explanation of the two-step approach.
+  w_mapped <- matrix(match(as.vector(w_mat), unique_labels), nrow = nrow(w_mat)) %% k_classes
 
   total_z_rows <- n_timepoints * (k_classes - 1)
 
