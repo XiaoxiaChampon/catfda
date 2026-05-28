@@ -2,7 +2,7 @@ Package: catfda
 Type: Package
 Title: statistical analysis for categorical functional data 
 Version: 0.1.0
-Author: Xiaoxia Champon, Anthony Weishampel, Ana-Maria Staicu, William Rand
+Author: Xiaoxia Champon, Ana-Maria Staicu, Anthony Weishampel, Chathura Jayalath, William Rand
 Maintainer: The package maintainer <xiachampon@gmail.com>
 URL: http://github.com/XiaoxiaChampon/catfda
 BugReports: http://github.com/XiaoxiaChampon/catfda/issues
