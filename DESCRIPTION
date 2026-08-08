@@ -3,11 +3,11 @@ Type: Package
 Title: Statistical Analysis for Categorical Functional Data
 Version: 0.1.0
 Authors@R: c(
-    person("Xiaoxia", "Champon", email = "xiachampon@gmail.com",
-           role = c("aut", "cre")),
+    person("Xiaoxia", "Champon", role = "aut"),
     person("Ana-Maria", "Staicu", role = "aut"),
+    person("Chathura", "Jayalath", email = "chathura@ucf.edu",
+           role = c("cre", "ctb")),
     person("Anthony", "Weishampel", role = "ctb"),
-    person("Chathura", "Jayalath", role = "ctb"),
     person("William", "Rand", role = "ctb"))
 Description: Implements methods for estimating latent Gaussian processes from
     categorical functional data using binomial, probit, or multinomial GAM-based
