@@ -6,9 +6,9 @@ Authors@R: c(
     person("Xiaoxia", "Champon", email = "xiachampon@gmail.com",
            role = c("aut", "cre")),
     person("Ana-Maria", "Staicu", role = "aut"),
-    person("Anthony", "Weishampel", role = "aut"),
-    person("Chathura", "Jayalath", role = "aut"),
-    person("William", "Rand", role = "aut"))
+    person("Anthony", "Weishampel", role = "ctb"),
+    person("Chathura", "Jayalath", role = "ctb"),
+    person("William", "Rand", role = "ctb"))
 Description: Implements methods for estimating latent Gaussian processes from
     categorical functional data using binomial, probit, or multinomial GAM-based
     approaches, and for clustering individuals via multivariate functional principal
