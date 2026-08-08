@@ -23,6 +23,7 @@
 #' This parallel implementation uses the \code{foreach} package for efficient
 #' computation across individuals.
 #'
+#' @importFrom doRNG %dorng%
 #' @examples
 #' \dontrun{
 #' # Setup parallel backend

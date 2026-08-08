@@ -8,6 +8,8 @@ generate_categ_func_data(prob_curves, tol = 1e-08)
 }
 \arguments{
 \item{prob_curves}{A named list of T × N matrices: p1_est, ..., pK_est}
+
+\item{tol}{Numeric tolerance for probability sum validation (default = 1e-8)}
 }
 \value{
 A list with:

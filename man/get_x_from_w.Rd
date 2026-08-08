@@ -8,6 +8,9 @@ get_x_from_w(w_mat, categories = NULL)
 }
 \arguments{
 \item{w_mat}{A matrix of categorical observations (time × individuals)}
+
+\item{categories}{Optional character or numeric vector of category labels.
+If \code{NULL} (default), labels are inferred from \code{w_mat}.}
 }
 \value{
 A 3D array (individual × time × category)

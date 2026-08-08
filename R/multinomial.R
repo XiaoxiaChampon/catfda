@@ -136,8 +136,10 @@ estimate_categ_func_data_multinomial <- function(time_points,
 #' Requires a parallel backend to be registered (e.g., via \code{doParallel})
 #' for actual parallel execution.
 #'
+#' @importFrom foreach foreach
+#' @importFrom doRNG %dorng%
 #' @examples
-#' \\dontrun{
+#' \dontrun{
 #' # Setup parallel backend
 #' library(doParallel)
 #' cl <- makeCluster(2)

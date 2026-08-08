@@ -36,7 +36,7 @@ Requires a parallel backend to be registered (e.g., via \code{doParallel})
 for actual parallel execution.
 }
 \examples{
-\\dontrun{
+\dontrun{
 # Setup parallel backend
 library(doParallel)
 cl <- makeCluster(2)

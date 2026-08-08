@@ -19,21 +19,11 @@ Encoding: UTF-8
 URL: https://github.com/XiaoxiaChampon/catfda
 BugReports: https://github.com/XiaoxiaChampon/catfda/issues
 Imports:
-    fda,
-    refund,
     mgcv (>= 1.8-40),
-    funData,
-    MFPCA,
-    dbscan,
-    fossil,
-    NbClust,
-    ggplot2,
-    graphics,
     stats,
     rlang (>= 1.0.0),
     foreach (>= 1.5.0),
-    doRNG (>= 1.8.0),
-    parallel
+    doRNG (>= 1.8.0)
 Suggests:
     doParallel,
     testthat (>= 3.0.0)

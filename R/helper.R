@@ -1,6 +1,4 @@
-#' Function to produce functional dummy variables X from categorical functional data W
-#' @param W 2D array, t*n: t is the timestamp and n is the number of the observation
-#' @return X 3D array, n*t*Q, Q: the total number of the category
+#' @keywords internal
 GetXFromW <- function(W) {
   num_indv <- ncol(W)
   timeseries_length <- nrow(W)
@@ -19,14 +17,7 @@ GetXFromW <- function(W) {
   return(X)
 }
 
-#' Wrapper for backward compatibility with old CamelCase naming
-#' @param choice Estimation method: "multinomial", "probit", or "binomial"
-#' @param time_points Time points vector
-#' @param w_mat Categorical data matrix
-#' @param n_basis Number of basis functions
-#' @param method GAM fitting method
-#' @return List with estimated Z and p curves
-#' @export
+#' @keywords internal
 EstimateCategFuncData <- function(choice, time_points, w_mat, n_basis = 25, method = "ML") {
   estimate_categ_func_data(choice, time_points, w_mat, n_basis, method)
 }
@@ -39,6 +30,8 @@ EstimateCategFuncData <- function(choice, time_points, w_mat, n_basis = 25, meth
 #' for preprocessing categorical functional data.
 #'
 #' @param w_mat A matrix of categorical observations (time × individuals)
+#' @param categories Optional character or numeric vector of category labels.
+#'   If \code{NULL} (default), labels are inferred from \code{w_mat}.
 #'
 #' @return A 3D array (individual × time × category)
 #'
