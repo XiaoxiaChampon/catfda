@@ -6,6 +6,7 @@
 #' multinomial sampling. This is useful for simulation studies and testing.
 #'
 #' @param prob_curves A named list of T × N matrices: p1_est, ..., pK_est
+#' @param tol Numeric tolerance for probability sum validation (default = 1e-8)
 #'
 #' @return A list with:
 #'   - w_mat: Categorical matrix (T × N)

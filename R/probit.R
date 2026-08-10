@@ -20,6 +20,7 @@
 #' The adaptive approach helps with numerical stability when dealing with
 #' very rare categorical events.
 #'
+#' @importFrom doRNG %dorng%
 #' @examples
 #' # Generate sample one-hot encoded data
 #' set.seed(123)

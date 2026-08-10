@@ -1,3 +1,6 @@
+# Suppress R CMD check NOTE for foreach loop variable
+utils::globalVariables(c("indv"))
+
 #' Fit a GAM to a binary time series with a chosen link function
 #'
 #' @description
@@ -20,21 +23,7 @@
 #' The function automatically adjusts the number of basis functions to avoid
 #' overfitting when dealing with very sparse binary responses.
 #'
-#' @examples
-#' # Fit a simple binomial GAM
-#' set.seed(123)
-#' n_time <- 50
-#' time_points <- seq(0, 1, length.out = n_time)
-#' response <- rbinom(n_time, 1, plogis(sin(2 * pi * time_points)))
-#'
-#' # Fit GAM
-#' result <- run_gam(time_points, response, "binomial")
-#'
-#' # Plot results
-#' plot(time_points, response, pch = 16, col = "gray")
-#' lines(time_points, result$prob, col = "red", lwd = 2)
-#'
-#' @export
+#' @keywords internal
 run_gam <- function(time_points,
                     response,
                     link = "binomial",

@@ -1,2 +1,6 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
+^outputs$
+^REPLACEMENT_SUMMARY\.md$
+^\.Rhistory$
+^LICENSE\.md$

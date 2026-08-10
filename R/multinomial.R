@@ -130,14 +130,16 @@ estimate_categ_func_data_multinomial <- function(time_points,
 #'
 #' @details
 #' This is the parallel implementation of the multinomial approach.
-#' It uses the \\code{foreach} package with \\code{\\%dorng\\%} for reproducible
+#' It uses the \code{foreach} package with \code{\%dorng\%} for reproducible
 #' parallel computation.
 #'
-#' Note: Requires a parallel backend to be registered (e.g., using doParallel)
+#' Requires a parallel backend to be registered (e.g., via \code{doParallel})
 #' for actual parallel execution.
 #'
+#' @importFrom foreach foreach
+#' @importFrom doRNG %dorng%
 #' @examples
-#' \\dontrun{
+#' \dontrun{
 #' # Setup parallel backend
 #' library(doParallel)
 #' cl <- makeCluster(2)
