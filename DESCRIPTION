@@ -2,43 +2,32 @@ Package: catfda
 Type: Package
 Title: Statistical Analysis for Categorical Functional Data
 Version: 0.1.0
-Author: Xiaoxia Champon, Ana-Maria Staicu, Anthony Weishampel, Chathura Jayalath, William Rand
-Maintainer: The package maintainer <xiachampon@gmail.com>
+Authors@R: c(
+    person("Xiaoxia", "Champon", role = "aut"),
+    person("Ana-Maria", "Staicu", role = "aut"),
+    person("Chathura", "Jayalath", email = "chathura@ucf.edu",
+           role = c("aut", "cre")),
+    person("Anthony", "Weishampel", role = "ctb"),
+    person("William", "Rand", role = "ctb"))
+Description: Implements methods for estimating latent Gaussian processes from
+    categorical functional data using binomial, probit, or multinomial GAM-based
+    approaches, and for clustering individuals via multivariate functional principal
+    component scores. Methods are described in Champon et al. (2026)
+    <doi:10.1080/01621459.2026.2672226>.
+License: MIT + file LICENSE
+Encoding: UTF-8
 URL: https://github.com/XiaoxiaChampon/catfda
 BugReports: https://github.com/XiaoxiaChampon/catfda/issues
-Description: This package contains three functions:
-             (1) Clustering: catfdcluster uses kmeans or DBSCAN on the multivariate 
-                 functional principal component scores extracted from the multivariate
-                 latent curves which induce the categorical functional data. The scores
-                 can be calculated using Ramsay's method or Happ's method.
-            (2) Hypothesis testing: aRLRTcfd uses  approximate restricted likelihood 
-                ratio test (aRLRT) to formally assess the relative importance of a category 
-                for the class membership. The test is conducted directly on the working 
-                normalized response where the parameters are estimated with penalized quasi-likelihood.
-            (3) Monitor clustering transition: catfdl incorporate the longitudinal nature of densely 
-                observed categorical valued functional data and monitors the clustering transitions
-                over time through a single set of time varying functional principal component scores.
-License: TBD
-Encoding: UTF-8
-LazyData: true
 Imports:
-    fda,
-    refund,
     mgcv (>= 1.8-40),
-    funData,
-    MFPCA,
-    dbscan,
-    fossil,
-    NbClust,
-    ggplot2,
-    graphics,
     stats,
     rlang (>= 1.0.0),
     foreach (>= 1.5.0),
-    doRNG (>= 1.8.0),
-    parallel
+    doRNG (>= 1.8.0)
 Suggests:
-    doParallel
+    doParallel,
+    testthat (>= 3.0.0)
+RoxygenNote: 7.3.2
 
 
 
