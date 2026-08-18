@@ -35,7 +35,7 @@ and binomial link functions based on the sparsity of categorical events:
 \itemize{
   \item Uses probit link for rare events (proportion < threshold_probability)
   \item Uses binomial link for common events
-  \item Only applies special probit handling for short time series (≤ 301 points)
+  \item Only applies special probit handling for short time series (<= 301 points)
 }
 
 The adaptive approach helps with numerical stability when dealing with

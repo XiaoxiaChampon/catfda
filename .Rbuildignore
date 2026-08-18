@@ -4,3 +4,5 @@
 ^REPLACEMENT_SUMMARY\.md$
 ^\.Rhistory$
 ^LICENSE\.md$
+^cran-comments\.md$
+^\.github$
