@@ -5,7 +5,7 @@ Version: 0.1.0
 Authors@R: c(
     person("Xiaoxia", "Champon", role = "aut"),
     person("Ana-Maria", "Staicu", role = "aut"),
-    person("Chathura", "Jayalath", email = "chathura@ucf.edu",
+    person("Chathura", "Jayalath", email = "acj.chathura@gmail.com",
            role = c("aut", "cre")),
     person("Anthony", "Weishampel", role = "ctb"),
     person("William", "Rand", role = "ctb"))
