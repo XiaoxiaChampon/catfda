@@ -6,7 +6,8 @@ Authors@R: c(
     person("Xiaoxia", "Champon", role = "aut"),
     person("Ana-Maria", "Staicu", role = "aut"),
     person("Chathura", "Jayalath", email = "acj.chathura@gmail.com",
-           role = c("aut", "cre")),
+           role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-2056-0211")),
     person("Anthony", "Weishampel", role = "ctb"),
     person("William", "Rand", role = "ctb"))
 Description: Implements methods for estimating latent Gaussian processes from
