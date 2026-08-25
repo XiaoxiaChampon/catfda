@@ -139,25 +139,26 @@ estimate_categ_func_data_multinomial <- function(time_points,
 #' @importFrom foreach foreach
 #' @importFrom doRNG %dorng%
 #' @examples
-#' \dontrun{
-#' # Setup parallel backend
-#' library(doParallel)
-#' cl <- makeCluster(2)
-#' registerDoParallel(cl)
+#' \donttest{
+#' if (requireNamespace("doParallel", quietly = TRUE)) {
+#'   library(doParallel)
+#'   cl <- makeCluster(2)
+#'   registerDoParallel(cl)
 #'
-#' # Generate sample data
-#' set.seed(123)
-#' n_time <- 50
-#' n_individuals <- 20
-#' time_points <- seq(0, 1, length.out = n_time)
-#' w_mat <- matrix(sample(1:3, n_time * n_individuals, replace = TRUE),
-#'                 nrow = n_time, ncol = n_individuals)
+#'   # Generate sample data
+#'   set.seed(123)
+#'   n_time <- 50
+#'   n_individuals <- 20
+#'   time_points <- seq(0, 1, length.out = n_time)
+#'   w_mat <- matrix(sample(1:3, n_time * n_individuals, replace = TRUE),
+#'                   nrow = n_time, ncol = n_individuals)
 #'
-#' # Parallel estimation
-#' result <- estimate_categ_func_data_multinomial_parallel(time_points, w_mat)
+#'   # Parallel estimation
+#'   result <- estimate_categ_func_data_multinomial_parallel(time_points, w_mat)
 #'
-#' # Cleanup
-#' stopCluster(cl)
+#'   # Cleanup
+#'   stopCluster(cl)
+#' }
 #' }
 #'
 #' @export
