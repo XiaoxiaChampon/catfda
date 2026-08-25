@@ -39,34 +39,35 @@ This parallel implementation uses the \code{foreach} package for efficient
 computation across individuals.
 }
 \examples{
-\dontrun{
-# Setup parallel backend
-library(doParallel)
-cl <- makeCluster(2)
-registerDoParallel(cl)
+\donttest{
+if (requireNamespace("doParallel", quietly = TRUE)) {
+  library(doParallel)
+  cl <- makeCluster(2)
+  registerDoParallel(cl)
 
-# Generate sample data
-set.seed(123)
-n_time <- 75
-n_individuals <- 15
-n_categories <- 3
+  # Generate sample data
+  set.seed(123)
+  n_time <- 75
+  n_individuals <- 15
+  n_categories <- 3
 
-time_points <- seq(0, 1, length.out = n_time)
-x_array <- array(0, dim = c(n_individuals, n_time, n_categories))
+  time_points <- seq(0, 1, length.out = n_time)
+  x_array <- array(0, dim = c(n_individuals, n_time, n_categories))
 
-# Fill with random one-hot vectors
-for(i in 1:n_individuals) {
-  for(t in 1:n_time) {
-    cat <- sample(1:n_categories, 1)
-    x_array[i, t, cat] <- 1
+  # Fill with random one-hot vectors
+  for (i in 1:n_individuals) {
+    for (t in 1:n_time) {
+      cat_val <- sample(1:n_categories, 1)
+      x_array[i, t, cat_val] <- 1
+    }
   }
+
+  # Parallel binomial estimation
+  result <- estimate_categ_func_data_binomial_parallel(time_points, x_array)
+
+  # Cleanup
+  stopCluster(cl)
 }
-
-# Parallel binomial estimation
-result <- estimate_categ_func_data_binomial_parallel(time_points, x_array)
-
-# Cleanup
-stopCluster(cl)
 }
 
 }
